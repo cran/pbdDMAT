@@ -28,7 +28,6 @@ setMethod("t", signature(x="ddmatrix"),
 
 
 
-
 dmat.ddmatmult <- function(x, y, outbldim=x@bldim)
 {
   if (!is.ddmatrix(x) || !is.ddmatrix(y))
@@ -40,14 +39,11 @@ dmat.ddmatmult <- function(x, y, outbldim=x@bldim)
   
   ICTXT <- x@ICTXT
   
-  bldimx <- x@bldim
-  bldimy <- y@bldim
-  
   cdim <- c(x@dim[1L], y@dim[2L])
   cldim <- base.numroc(cdim, outbldim, ICTXT=ICTXT)
   
-  descx <- base.descinit(dim=x@dim, bldim=bldimx, ldim=x@ldim, ICTXT=ICTXT)
-  descy <- base.descinit(dim=y@dim, bldim=bldimy, ldim=y@ldim, ICTXT=ICTXT)
+  descx <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=ICTXT)
+  descy <- base.descinit(dim=y@dim, bldim=y@bldim, ldim=y@ldim, ICTXT=ICTXT)
   descc <- base.descinit(dim=cdim, bldim=outbldim, ldim=cldim, ICTXT=ICTXT)
   
   out <- base.rpdgemm(transx='N', transy='N', x=x@Data, descx=descx, y=y@Data, descy=descy, descc=descc)
@@ -61,7 +57,6 @@ setMethod("%*%", signature(x="ddmatrix", y="ddmatrix"),
   function(x, y)
     dmat.ddmatmult(x, y, outbldim=x@bldim)
 )
-
 
 
 
@@ -93,6 +88,8 @@ dmat.crossprod <- function(trans, x)
   return( c )
 }
 
+
+
 setMethod("crossprod", signature(x="ddmatrix", y="ANY"), 
   function(x, y = NULL)
   {
@@ -115,6 +112,7 @@ setMethod("crossprod", signature(x="ddmatrix", y="ANY"),
     }
   }
 )
+
 
 
 setMethod("tcrossprod", signature(x="ddmatrix", y="ANY"), 
@@ -141,6 +139,7 @@ setMethod("tcrossprod", signature(x="ddmatrix", y="ANY"),
 )
 
 
+
 # inversion
 setMethod("solve", signature(a="ddmatrix"), 
   function(a)
@@ -159,6 +158,8 @@ setMethod("solve", signature(a="ddmatrix"),
     return(a)
   }
 )
+
+
 
 # inversion via a cholesky, or inversion of crossprod(x) via qr
 setMethod("chol2inv", signature(x="ddmatrix"), 
@@ -188,12 +189,13 @@ setMethod("chol2inv", signature(x="ddmatrix"),
   }
 )
 
+
+
 # ################################################
 # ------------------------------------------------
 # Solving systems
 # ------------------------------------------------
 # ################################################
-
 
 setMethod("solve", signature(a="ddmatrix", b="ddmatrix"), 
   function(a, b)
@@ -214,6 +216,7 @@ setMethod("solve", signature(a="ddmatrix", b="ddmatrix"),
     return( b )
   }
 )
+
 
 
 # ################################################
@@ -286,6 +289,7 @@ dmat.svd <- function(x, nu, nv, inplace=FALSE)
 }
 
 
+
 setMethod("La.svd", signature(x="ddmatrix"), 
   function(x, nu=min(n, p), nv=min(n, p)) #, ..., inplace=FALSE)
   {
@@ -297,6 +301,7 @@ setMethod("La.svd", signature(x="ddmatrix"),
     return( ret )
   }
 )
+
 
 
 setMethod("svd", signature(x="ddmatrix"), 
@@ -314,6 +319,7 @@ setMethod("svd", signature(x="ddmatrix"),
     return( ret )
   }
 )
+
 
 
 setMethod("chol", signature(x="ddmatrix"), 
@@ -339,6 +345,7 @@ setMethod("chol", signature(x="ddmatrix"),
 )
 
 
+
 setMethod("lu", signature(x="ddmatrix"), 
   function(x)
   {
@@ -351,6 +358,8 @@ setMethod("lu", signature(x="ddmatrix"),
     return( x )
   }
 )
+
+
 
 setMethod("eigen", signature(x="ddmatrix"), 
   function(x, symmetric, only.values = FALSE)
@@ -375,6 +384,8 @@ setMethod("eigen", signature(x="ddmatrix"),
   }
 )
 
+
+
 # ---------------------------------------------------------
 # QR stuff no one will ever use
 # ---------------------------------------------------------
@@ -389,11 +400,23 @@ setMethod("qr", signature(x="ddmatrix"),
     n <- descx[4L]
     
     # qr
-    ret <- base.rpdgeqpf(tol=tol, m=m, n=n, x=x@Data, descx=descx)
+    out <- base.rpdgeqpf(tol=tol, m=m, n=n, x=x@Data, descx=descx)
     
-    ret$INFO <- NULL
-    x@Data <- ret$qr
-    ret$qr <- x
+    # make sure processors who own nothing have a real value (not a null
+    # pointer) for the numerical rank
+#    if (comm.rank()!=0)
+#      rank <- 0
+#    else
+#      rank <- out$rank
+#    
+#    rank <- allreduce(rank)
+    
+    
+    if (base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT)){
+      x@Data <- out$qr
+    }
+    
+    ret <- list(qr=x, rank=out$rank, tau=out$tau, pivot=out$pivot)
     
     attr(ret, "class") <- "qr"
     
@@ -412,8 +435,8 @@ setMethod("qr.Q", signature(x="ANY"),
         # complete/Dvec options
         qr <- x$qr
         
-        if (qr@dim[1] < qr@dim[2])
-          qr <- qr[, 1:x$rank]
+        if (qr@dim[1L] < qr@dim[2L])
+          qr <- qr[, 1L:x$rank]
         
         # Matrix descriptors
         descqr <- base.descinit(qr@dim, qr@bldim, qr@ldim, ICTXT=qr@ICTXT)
@@ -425,7 +448,9 @@ setMethod("qr.Q", signature(x="ANY"),
         
         ret <- base.rpdorgqr(m=m, n=n, k=k, qr=qr@Data, descqr=descqr, tau=x$tau)
         
-        qr@Data <- ret
+        if (base.ownany(dim=qr@dim, bldim=qr@bldim, ICTXT=qr@ICTXT)){
+          qr@Data <- ret
+        }
         
         return( qr )
         
@@ -469,6 +494,8 @@ dmat.qr.R <- function(qr, complete=FALSE)
   
   return(ret)
 }
+
+
 
 setMethod("qr.R", signature(x="ANY"), 
   function(x, complete = FALSE) 
@@ -517,6 +544,7 @@ setMethod("qr.qy", signature(x="ANY"),
 )
 
 
+
 setMethod("qr.qty", signature(x="ANY"), 
   function(x, y)
   {
@@ -546,6 +574,8 @@ setMethod("qr.qty", signature(x="ANY"),
   }
 )
 
+
+
 # ################################################
 # ------------------------------------------------
 # Auxillary
@@ -564,6 +594,8 @@ setMethod("isSymmetric", signature(object="ddmatrix"),
   }
 )
 
+
+
 setMethod("norm", signature(x="ddmatrix"), 
   function (x, type = c("O", "I", "F", "M", "2")) 
   {
@@ -581,7 +613,6 @@ setMethod("norm", signature(x="ddmatrix"),
     return( ret )
   }
 )
-
 
 
 
@@ -609,11 +640,15 @@ setMethod("norm", signature(x="ddmatrix"),
   }
 }
 
+
+
 kappa.qr2 <- function (z, ...) 
 {
     R <- qr.R(z, complete=FALSE)
     .kappa_tri2(R, ...)
 }
+
+
 
 kappa.ddmatrix <- function (z, exact = FALSE, norm = NULL, method = c("qr", "direct"), ...) 
 {
@@ -637,6 +672,7 @@ kappa.ddmatrix <- function (z, exact = FALSE, norm = NULL, method = c("qr", "dir
       .kappa_tri2(z, exact = FALSE, norm = norm, ...)
   }
 }
+
 
 
 setMethod("rcond", signature(x="ddmatrix"),
