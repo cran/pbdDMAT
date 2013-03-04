@@ -1,18 +1,19 @@
+# ------------------
+# cov
+# ------------------
+
 setMethod("cov", signature(x="ddmatrix"),
 function (x, y = NULL, use = "everything", method = "pearson") 
   {
     yexists <- !is.null(y)
-
+    
     if (yexists){
-      if (!is.ddmatrix(y)){
-        comm.print("Error : 'y' must be a distributed matrix")
-        stop("")
-      } else if (x@dim[1] != y@dim[1]){
-          comm.print("Error : incompatible dimensions")
-          stop("")
-        }
+      if (!is.ddmatrix(y))
+        comm.stop("Error : 'y' must be a distributed matrix")
+      else if (x@dim[1] != y@dim[1])
+        comm.stop("Error : incompatible dimensions")
     }
-
+    
     if (use=="all.obs"){
       anyna <- FALSE
       if (any(is.na(x)))
@@ -21,10 +22,8 @@ function (x, y = NULL, use = "everything", method = "pearson")
         if (any(is.na(y)))
           anyna <- TRUE
       
-      if (anyna){
-        comm.print("Error : missing observations in cov")
-        stop("")
-      }
+      if (anyna)
+        comm.stop("Error : missing observations in cov")
     }
     if (use=="complete.obs"){
       if (yexists){
@@ -34,42 +33,42 @@ function (x, y = NULL, use = "everything", method = "pearson")
           if (lnarows < x@dim[1]){
             x <- x[-narows, ]
             y <- y[-narows, ]
-          } else {
-            comm.print("Error : no complete element pairs")
-            stop("")
-          }
+          } 
+          else 
+            comm.stop("Error : no complete element pairs")
         }
-      } else
+      } 
+      else
         x <- na.exclude(x)
-    } else if (use=="na.or.complete"){
-      comm.print("Error : na.or.complete not yet implemented")
-      stop("")
-    } else if (use=="pairwise.complete.obs"){
-      comm.print("Error : pairwise.complete.obs not yet implemented")
-      stop("")
-    } else if (use!="everything"){
-      comm.print("Error : invalid 'use' argument")
-      stop("")
-    }
+    } 
+    else if (use=="na.or.complete")
+      comm.stop("Error : na.or.complete not yet implemented")
+    else if (use=="pairwise.complete.obs")
+      comm.stop("Error : pairwise.complete.obs not yet implemented")
+    else if (use!="everything")
+      comm.stop("Error : invalid 'use' argument")
     
     method <- match.arg(method)
     if (method == "pearson") {
-        x <- scale(x, scale=FALSE)
-        if (is.null(y))
-            ret <- base.rpdgemm(x=base.rpdtran(x), y=x, outbldim=x@bldim) / (nrow(x) - 1)
-        else {
-            scale(y, scale=FALSE)
-            ret <- base.rpdgemm(x=base.rpdtran(x), y=y, outbldim=x@bldim) / (nrow(x) - 1)
-        }
+#########################################################
+      cntr <- dmat.clmn(x, na.rm=FALSE)
+      if (base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT))
+        x@Data <- base::scale(x@Data, center=cntr, scale=FALSE)
+#      x <- scale(x, scale=FALSE)
+#########################################################
+      if (is.null(y))
+        ret <- crossprod(x=x) / max(1, nrow(x) - 1)
+      else {
+        scale(x=y, center=TRUE, scale=FALSE)
+        ret <- t(x) %*% y / (nrow(x) - 1)
+      }
     }
-    else {
-      comm.print("Error : Other methods not yet implemented")
-      stop("")
-    }
-
+    else 
+      comm.stop("Error : Other methods not yet implemented")
+    
     if (x@dim[1] == 1)      
       ret[, ] <- NA
-
+    
     return( ret )
   }
 )
@@ -88,7 +87,7 @@ function (x, y = NULL, na.rm = FALSE, use)
     
     na.method <- pmatch(use, c("all.obs", "complete.obs", "pairwise.complete.obs", "everything", "na.or.complete"))
     if (is.na(na.method)) 
-        stop("invalid 'use' argument")
+        comm.stop("invalid 'use' argument")
     
     ret <- cov(x, y, na.method, FALSE)
     
@@ -97,6 +96,9 @@ function (x, y = NULL, na.rm = FALSE, use)
 )
 
 
+# ------------------
+# sd
+# ------------------
 
 setMethod("sd", signature(x="ddmatrix"),
 function (x, na.rm = FALSE, reduce = FALSE, proc.dest="all") 
@@ -104,17 +106,14 @@ function (x, na.rm = FALSE, reduce = FALSE, proc.dest="all")
     if (na.rm)
       x <- na.exclude(x)
     
-    sdv <- .Call("R_DDMATVAR", 
-                  x@Data, as.integer(x@dim[1]), 
-                  as.integer(x@ldim[1]), as.integer(x@ldim[2]), 
-                  as.integer(x@CTXT),
-                  PACKAGE="pbdBASE")
+    descx <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
+    sdv <- base.pdclvar(x=x@Data, descx=descx)
     
-    sdv <- matrix(sqrt(sdv), nrow=1)
+    sdv <- sqrt(sdv)
+    dim(sdv) <- c(1L, base::length(sdv))
+#    sdv <- matrix(sqrt(sdv), nrow=1)
     
-    ret <- new("ddmatrix", 
-               Data=sdv, dim=c(1, x@dim[2]), 
-               ldim=dim(sdv), bldim=x@bldim, CTXT=x@CTXT)
+    ret <- new("ddmatrix", Data=sdv, dim=c(1, x@dim[2]), ldim=dim(sdv), bldim=x@bldim, ICTXT=x@ICTXT)
     
     if (reduce)
       ret <- as.vector(x=ret, proc.dest=proc.dest)
@@ -128,7 +127,52 @@ setMethod("sd", signature(x="ANY"),
     stats::sd(x=x, na.rm=na.rm)
 )
 
+# ------------------
+# cor
+# ------------------
 
+# experimental
+setMethod("cor", signature(x="ddmatrix"),
+function (x, y = NULL, use = "everything", method = "pearson") 
+  {
+    if (method != "pearson")
+      comm.stop("Not yet implemented")
+    
+    if (use != "everything")
+      comm.stop("Not yet implemented")
+    
+    x <- scale(x=x, center=TRUE, scale=TRUE)
+    
+    if (!is.null(y)){
+      yscaled <- scale(x=y, center=TRUE, scale=TRUE)
+      ret <- t(x) %*% y / (nrow(x) - 1)
+    }
+    else {
+      ret <- crossprod(x=x) / max(1, nrow(x) - 1)
+    }
+    
+    return( ret )
+  }
+)
+
+
+
+setMethod("cov2cor", signature(V="ddmatrix"),
+function(V)
+  {
+    d <- sqrt(1/diag(V))
+    
+    r <- V@Data
+    descv <- base.descinit(dim=V@dim, bldim=V@bldim, ldim=V@ldim, ICTXT=V@ICTXT)
+    
+    r <- base.pdsweep(x=r, descx=descv, vec=d, MARGIN=1L, FUN="*")
+    r <- base.pdsweep(x=r, descx=descv, vec=d, MARGIN=2L, FUN="*")
+    
+    V@Data <- r
+    
+    return( V )
+  }
+)
 
 
 
