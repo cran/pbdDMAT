@@ -58,15 +58,13 @@ dmat.gmat <- function(dx, proc.dest="all")
   if (is.null(out))
     return(out)
   else {
-#    out <- matrix(out, nrow=dim[1], ncol=dim[2])
     if (length(xattrs)>1){
       if (length(names)>0)
         xattrs$dimnames <- NULL
-      
-      oattrs <- union(attributes(out), xattrs[-1])
-      names(oattrs) <- names(xattrs)
-      attributes(out) <- oattrs
+      xattrs$dim <- dim(out)
+      attributes(out) <- xattrs
     }
+    
     return( out )
   }
 }
@@ -76,7 +74,6 @@ dmat.gmat <- function(dx, proc.dest="all")
 # Distribute dense, in-core matrices
 dmat.as.ddmatrix <- function(x, bldim=.BLDIM, ICTXT=.ICTXT)
 {
-#  ICTXT <- base.blacs(ICTXT=ICTXT)$ICTXT
   nprocs <- pbdMPI::comm.size()
   owns <- pbdMPI::allreduce(is.matrix(x), op='sum')
   

@@ -1,9 +1,9 @@
 Package: pbdDMAT
 Title: Programming with Big Data -- Distributed Matrix Methods
-Version: 0.2-0
+Version: 0.2-1
 Date: 2013-3-4
-Depends: R (>= 2.14.0), methods, rlecuyer, pbdMPI (>= 0.1-5), pbdSLAP
-        (>= 0.1-5), pbdBASE (>= 0.2-0)
+Depends: R (>= 2.14.0), methods, rlecuyer, pbdMPI (>= 0.1-6), pbdSLAP
+        (>= 0.1-5), pbdBASE (>= 0.2-1)
 LazyLoad: yes
 LazyData: yes
 Authors@R: c(person("Drew", "Schmidt", role = c("aut", "cre"), email =
@@ -19,13 +19,13 @@ SystemRequirements: OpenMPI (>= 1.5.4) on Solaris, Linux and Mac,
         MPICH2 (>= 1.4.1p1) on Windows
 License: GPL (>= 2)
 URL: http://r-pbd.org/
-BugReports: RBigDataProgramming on Google Group
+BugReports: http://group.r-pbd.org/
 MailingList: Please send questions and comments regarding pbdR to
         RBigData@gmail.com
-Packaged: 2013-03-13 13:25:43 UTC; mschmid3
+Packaged: 2013-03-25 01:09:01 UTC; mschmid3
 Author: Drew Schmidt [aut, cre], Wei-Chen Chen [aut], George Ostrouchov
         [aut], Pragneshkumar Patel [aut]
 Maintainer: Drew Schmidt <schmidt@math.utk.edu>
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2013-03-13 15:22:12
+Date/Publication: 2013-03-25 07:20:01

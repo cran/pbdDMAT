@@ -222,7 +222,7 @@ setMethod("solve", signature(a="ddmatrix", b="ddmatrix"),
 # ------------------------------------------------
 # ################################################
 
-dmat.svd <- function(x, nu, nv)
+dmat.svd <- function(x, nu, nv, inplace=FALSE)
 {
   ICTXT <- x@ICTXT
   
@@ -262,7 +262,7 @@ dmat.svd <- function(x, nu, nv)
   descvt <- base.descinit(dim=vtdim, bldim=bldim, ldim=vtldim, ICTXT=ICTXT)
   
   # Compute 
-  out <- base.rpdgesvd(jobu=jobu, jobvt=jobvt, m=m, n=n, a=x@Data, desca=desca, descu=descu, descvt=descvt)
+  out <- base.rpdgesvd(jobu=jobu, jobvt=jobvt, m=m, n=n, a=x@Data, desca=desca, descu=descu, descvt=descvt, inplace=inplace)
   
   if (nu==0)
     u <- NULL
@@ -287,12 +287,12 @@ dmat.svd <- function(x, nu, nv)
 
 
 setMethod("La.svd", signature(x="ddmatrix"), 
-  function(x, nu=min(n, p), nv=min(n, p))
+  function(x, nu=min(n, p), nv=min(n, p)) #, ..., inplace=FALSE)
   {
     n <- nrow(x)
     p <- ncol(x)
     
-    ret <- dmat.svd(x=x, nu=nu, nv=nv)
+    ret <- dmat.svd(x=x, nu=nu, nv=nv, inplace=FALSE)
     
     return( ret )
   }
@@ -300,12 +300,12 @@ setMethod("La.svd", signature(x="ddmatrix"),
 
 
 setMethod("svd", signature(x="ddmatrix"), 
-  function(x, nu=min(n, p), nv=min(n, p))
+  function(x, nu=min(n, p), nv=min(n, p)) #, ..., inplace=FALSE)
   {
     n <- nrow(x)
     p <- ncol(x)
     
-    ret <- dmat.svd(x=x, nu=nu, nv=nv)
+    ret <- dmat.svd(x=x, nu=nu, nv=nv, inplace=FALSE)
     
     if (is.ddmatrix(ret$vt))
       ret$vt <- t(ret$vt)
@@ -349,6 +349,29 @@ setMethod("lu", signature(x="ddmatrix"),
     x@Data <- out
     
     return( x )
+  }
+)
+
+setMethod("eigen", signature(x="ddmatrix"), 
+  function(x, symmetric, only.values = FALSE)
+  {
+    if (x@dim[1L] != x@dim[2L])
+      comm.stop("non-square matrix in 'eigen'")
+    
+    if (missing(symmetric)) 
+      symmetric <- isSymmetric(x)
+    
+    if (only.values)
+      jobz <- 'N'
+    else
+      jobz <- 'V'
+    
+    desca <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
+    descz <- desca
+    
+    out <- base.rpdsyev(jobz=jobz, uplo='L', n=x@dim[2L], a=x@Data, desca=desca, descz=descz)
+    
+    return( out )
   }
 )
 
@@ -528,6 +551,18 @@ setMethod("qr.qty", signature(x="ANY"),
 # Auxillary
 # ------------------------------------------------
 # ################################################
+
+setMethod("isSymmetric", signature(object="ddmatrix"), 
+  function (object, tol = 100 * .Machine$double.eps, ...) 
+  {
+    if (object@dim[1L] != object@dim[2L]) 
+      return(FALSE)
+    
+    all.equal(object, t(object), tolerance = tol, ...)
+    
+    isTRUE(test)
+  }
+)
 
 setMethod("norm", signature(x="ddmatrix"), 
   function (x, type = c("O", "I", "F", "M", "2")) 
