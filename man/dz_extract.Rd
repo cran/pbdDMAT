@@ -22,10 +22,10 @@
 }
 }
 \usage{
-  x[i, j, ..., ICTXT]
-  
-  \S3method{head}{ddmatrix}(x, n = 6L, ...)
-  \S3method{tail}{ddmatrix}(x, n = 6L, ...)
+x[i, j, ..., ICTXT]
+
+\S3method{head}{ddmatrix}(x, n = 6L, ...)
+\S3method{tail}{ddmatrix}(x, n = 6L, ...)
 }
 \arguments{
   \item{x}{numeric distributed matrix.}
@@ -53,9 +53,6 @@
 }
 \value{
   Returns a distributed matrix.
-}
-\seealso{
-  \code{\link{BLACS}, \link{InitGrid}}
 }
 \examples{
 \dontrun{

@@ -362,7 +362,7 @@ setMethod("lu", signature(x="ddmatrix"),
 
 
 setMethod("eigen", signature(x="ddmatrix"), 
-  function(x, symmetric, only.values = FALSE)
+  function(x, symmetric, only.values=FALSE)
   {
     if (x@dim[1L] != x@dim[2L])
       comm.stop("non-square matrix in 'eigen'")
@@ -370,19 +370,90 @@ setMethod("eigen", signature(x="ddmatrix"),
     if (missing(symmetric)) 
       symmetric <- isSymmetric(x)
     
-    if (only.values)
-      jobz <- 'N'
-    else
-      jobz <- 'V'
-    
     desca <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
-    descz <- desca
     
-    out <- base.rpdsyev(jobz=jobz, uplo='L', n=x@dim[2L], a=x@Data, desca=desca, descz=descz)
+    if (symmetric){
+      if (only.values)
+        jobz <- 'N'
+      else
+        jobz <- 'V'
+      
+      out <- base.rpdsyev(jobz=jobz, uplo='L', n=x@dim[2L], a=x@Data, desca=desca, descz=desca)
+    } else {
+      if (!only.values) # FIXME
+        comm.stop("Currently only possible to recover eigenvalues from a non-symmetric matrix")
+      
+      out <- base.pdgeeig(dx@Data, descx=desca)
+    }
     
     return( out )
   }
 )
+
+
+
+eigen2 <- function(x, range=c(-Inf, Inf), range.type="interval", only.values=FALSE, abstol=1e-8, orfac=1e-3)
+{
+    # Basic checking
+    must.be(x, "ddmatrix")
+    must.be(range, "numeric")
+    must.be(range.type, "character")
+    must.be(only.values, "logical")
+    
+    # Return eigenvectors or not
+    if (only.values)
+        jobz <- 'N'
+    else
+        jobz <- 'V'
+    
+    # Eigenvalue search
+    range.type <- match.arg(tolower(range.type), c("interval", "index"))
+    
+    if (range.type == "interval")
+    {
+        vl <- range[1L]
+        vu <- range[2L]
+        
+        if (vl == -Inf && vu == Inf)
+            range <- 'A'
+        else
+            range <- 'V'
+        
+        il <- iu <- 0
+    }
+    else
+    {
+        il <- range[1L]
+        iu <- range[2L]
+        
+        if (vl == -Inf && vu == Inf)
+            range <- 'A'
+        else
+            range <- 'I'
+        
+        vl <- vu <- 0
+    }
+    
+    
+    desca <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
+    
+    out <- base.rpdsyevx(jobz=jobz, range=range, n=x@dim[1L], a=x@Data, desca=desca, vl=vl, vu=vu, il=il, iu=iu, abstol=abstol, orfac=orfac)
+    
+    if (jobz == 'N')
+        return( out )
+    else
+    {
+        if (out$m == 0)
+            return( NULL )
+        
+        z <- new("ddmatrix", Data=out$vectors, dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
+        z <- z[, 1:out$m]
+        ret <- list(values=out$values, vectors=z)
+        
+        return( ret )
+    }
+}
+
 
 
 
@@ -457,7 +528,7 @@ setMethod("qr.Q", signature(x="ANY"),
       } else {
         dqr <- dim(x$qr)
         cmplx <- mode(x$qr) == "complex"
-        ret <- base:::qr.Q(qr=x, complete=complete, Dvec=Dvec)
+        ret <- base::qr.Q(qr=x, complete=complete, Dvec=Dvec)
       }
       
       return( ret )
@@ -578,6 +649,39 @@ setMethod("qr.qty", signature(x="ANY"),
 
 # ################################################
 # ------------------------------------------------
+# Misc
+# ------------------------------------------------
+# ################################################
+
+### FIXME
+#setMethod("polyroot", signature(z="ddmatrix"),
+#  function(z)
+#  {
+#    bldim <- z@bldim
+#    
+#    if (diff(bldim) != 0)
+#      stop("blocking dimensions for 'z' must agree")
+#    
+#    # Adjustment for eigen()'s shortcomings
+#    if (bldim[1L] < 5)
+#      bldim <- rep(5L, 2L)
+#    else if (bldim[1L] > 32)
+#      bldim <- rep(32L, 2L)
+#    
+#    if (bldim[1L] != z@bldim[1L])
+#      z <- dmat.redistribute(dx=z, bldim=bldim, ICTXT=z@ICTXT)
+#    
+#    
+#    
+#    ret <- eigen(x, symmetric=FALSE, only.values=TRUE)
+#    
+#    return( ret )
+#  }
+#)
+
+
+# ################################################
+# ------------------------------------------------
 # Auxillary
 # ------------------------------------------------
 # ################################################
@@ -588,7 +692,7 @@ setMethod("isSymmetric", signature(object="ddmatrix"),
     if (object@dim[1L] != object@dim[2L]) 
       return(FALSE)
     
-    all.equal(object, t(object), tolerance = tol, ...)
+    test <- all.equal(object, t(object), tolerance = tol, ...)
     
     isTRUE(test)
   }

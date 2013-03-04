@@ -271,7 +271,7 @@ setMethod("ddmatrix.local", signature(data="vector"),
       
       bldim[1L] <- base.nbd(ldim[1L], bldim[1L])
       bldim[2L] <- base.nbd(ldim[2L], bldim[2L])
-      comm.cat(paste("Using bldim of ", bldim[1L], "x", bldim[2L], "\n\n", sep=""), quiet=T)
+      comm.cat(paste("Using bldim of ", bldim[1L], "x", bldim[2L], "\n\n", sep=""), quiet=TRUE)
     }
     
     if (length(data) > 1){
@@ -338,7 +338,7 @@ setMethod("ddmatrix.local", signature(data="character"),
       
       bldim[1L] <- base.nbd(ldim[1L], bldim[1L])
       bldim[2L] <- base.nbd(ldim[2L], bldim[2L])
-      comm.cat(paste("Using bldim of ", bldim[1L], "x", bldim[2L], "\n\n", sep=""), quiet=T)
+      comm.cat(paste("Using bldim of ", bldim[1L], "x", bldim[2L], "\n\n", sep=""), quiet=TRUE)
     }
     
     
@@ -346,11 +346,11 @@ setMethod("ddmatrix.local", signature(data="character"),
       Data <- matrix(0.0, 1, 1)
     else {
       if (data=="runif" || data=="uniform")
-        Data <- matrix(n=runif(prod(ldim), min=min, max=max), ldim[1L], ldim[2L])
+        Data <- matrix(runif(prod(ldim), min=min, max=max), ldim[1L], ldim[2L])
       else if (data=="rnorm" || data=="normal")
-        Data <- matrix(n=rnorm(prod(ldim), mean=mean, sd=sd), ldim[1L], ldim[2L])
+        Data <- matrix(rnorm(prod(ldim), mean=mean, sd=sd), ldim[1L], ldim[2L])
       else if (data=="rexp" || data=="exponential")
-        Data <- matrix(n=rexp(prod(ldim), rate=rate), ldim[1L], ldim[2L])
+        Data <- matrix(rexp(prod(ldim), rate=rate), ldim[1L], ldim[2L])
       else if (data=="rweibull" || data=="weibull")
         Data <- matrix(rweibull(n=prod(ldim), shape=shape, scale=scale), ldim[1L], ldim[2L])
     }
@@ -361,6 +361,54 @@ setMethod("ddmatrix.local", signature(data="character"),
   }
 )
 
+
+
+companion <- function(coef, type="matrix", ..., bldim=.BLDIM, ICTXT=.ICTXT)
+  {
+    type <- match.arg(type, c("matrix", "ddmatrix"))
+    
+    if (type=="ddmatrix"){
+      if (length(bldim)==1)
+        bldim <- rep(bldim, 2L)
+      
+      dim <- rep(length(coef), 2L)
+      ldim <- base.numroc(dim=dim, bldim=bldim, ICTXT=ICTXT)
+      
+      descx <- base.descinit(dim=dim, bldim=bldim, ldim=ldim, ICTXT=ICTXT)
+      
+      out <- base.pdmkcpn1(coef=coef, descx=descx)
+      ret <- new("ddmatrix", Data=out, dim=dim, ldim=ldim, bldim=bldim, ICTXT=ICTXT)
+    }
+    else
+    {
+      n <- length(coef)
+      ret <- cbind(rbind(rep(0, n-1), diag(1, nrow=n-1, ncol=n-1)), -coef)
+    }
+    
+    return( ret )
+}
+
+
+Hilbert <- function(n, type="matrix", ..., bldim=.BLDIM, ICTXT=.ICTXT)
+{
+  type <- match.arg(type, c("matrix", "ddmatrix"))
+  if (type == "ddmatrix")
+  {
+    dim <- c(n, n)
+    ldim <- base.numroc(dim=dim, bldim=bldim, ICTXT=ICTXT, fixme=TRUE)
+    descx <- base.descinit(dim=dim, bldim=bldim, ldim=ldim, ICTXT=ICTXT)
+    
+    out <- base.pdhilbmk(descx)
+    
+    ret <- new("ddmatrix", Data=out, dim=dim, ldim=ldim, bldim=bldim, ICTXT=ICTXT)
+  }
+  else
+  {
+    ret <- base.dhilbmk(n)
+  }
+  
+  return( ret )
+}
 
 
 # -------------------

@@ -28,6 +28,7 @@ export(
   chol, 
   kappa.ddmatrix, 
   rcond,
+  eigen2,
   # Math
   abs, 
   sqrt, 
@@ -41,7 +42,6 @@ export(
   # Principal Components
   scale, 
   prcomp, 
-  diag,
   # Covariance
   var, 
   cov, 
@@ -62,11 +62,15 @@ export(
   colMin,
   rowMax,
   colMax,
+  # constructors
+  diag,
+  ddmatrix, 
+  ddmatrix.local, 
+  Hilbert,
+  companion,
   # Misc
   as.matrix, 
   ownany, 
-  ddmatrix, 
-  ddmatrix.local, 
   as.ddmatrix, 
   is.ddmatrix, 
   is.na, 
@@ -102,6 +106,7 @@ exportMethods(
   "qr.R", 
   "qr.qty", 
   "qr.qy", 
+  "expm",
   "chol2inv",
   "rcond", 
   "norm",
