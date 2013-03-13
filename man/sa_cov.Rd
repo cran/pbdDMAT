@@ -1,5 +1,5 @@
-\name{stats}
-\alias{stats}
+\name{Variance/Covariance}
+\alias{Variance/Covariance}
 \docType{methods}
 
 \alias{sd-method}
@@ -7,34 +7,34 @@
 \alias{sd,ANY-method}
 \alias{sd}
 
-\alias{var-method}
-\alias{var,ddmatrix-method}
-\alias{var}
-
 \alias{cov-method}
 \alias{cov,ddmatrix-method}
 \alias{cov}
 
-\alias{scale-method}
-\alias{scale,ddmatrix-method}
-\alias{scale}
+\alias{var-method}
+\alias{var,ddmatrix-method}
+\alias{var}
 
-\alias{prcomp-method}
-\alias{prcomp,ddmatrix-method}
-\alias{prcomp}
+\alias{cor-method}
+\alias{cor,ddmatrix-method}
+\alias{cor}
 
-\title{ Some Statistical Methods for Distributed Matrices }
+\alias{cov2cor-method}
+\alias{cov2cor,ddmatrix-method}
+\alias{cov2cor}
+
+
+\title{ Variance, Covariance, and Correlation }
 \description{
-  \code{cov()} forms the variance-covariance matrix
-
-  \code{scale()} centers and/or scales the columns of a distributed
-  matrix.
-  
-  \code{prcomp()} performs the principal components analysis.
+  \code{sd()} forms the vector of column standard deviations.
+  \code{cov()} and \code{var()} form the variance-covariance matrix.
+  \code{cor()} forms the correlation matrix.
+  \code{cov2cor()} scales a covariance matrix into a correlation matrix.
 }
 \section{Methods}{
 \describe{
 \item{\code{signature(x = "ddmatrix")}}{}
+\item{\code{signature(V = "ddmatrix")}}{}
 }
 }
 \usage{
@@ -43,12 +43,10 @@
   \S4method{var}{ddmatrix}(x, y = NULL, na.rm = FALSE, use)
   \S4method{cov}{ddmatrix}(x, y = NULL, use = "everything", method = 
   "pearson")
-  \S4method{scale}{ddmatrix}(x, center = TRUE, scale = TRUE)
-  \S4method{prcomp}{ddmatrix}(x, retx = TRUE, center = TRUE, 
-  scale. = FALSE, tol = NULL)
+  \S4method{cov2cor}{ddmatrix}(V)
 }
 \arguments{
-  \item{x, y}{numeric distributed matrices.}
+  \item{x, y, V}{numeric distributed matrices.}
   \item{na.rm}{logical, determines whether or not \code{NA}'s should 
   be dealth with.}
   \item{reduce}{logical or string. See details}
@@ -61,19 +59,6 @@
   \item{method}{character argument indicating which method should 
   be used to calculate covariances. Currently only "spearman" is 
   available for \code{ddmatrix}.}
-  \item{center}{logical value, determines whether or not columns are
-  zero centered}
-  \item{scale, scale.}{logical value, determines whether or not columns 
-  are rescaled to unit variance}
-  \item{retx}{logical, indicates whether the rotated variables
-  should be returned}
-  \item{tol}{a value indicating the magnitude below which components
-  should be omitted. (Components are omitted if their standard
-  deviations are less than or equal to \code{tol} times the standard
-  deviation of the first component.)  With the default null
-  setting, no components are omitted.  Other settings for tol
-  could be \code{tol = 0} or \code{tol = sqrt(.Machine$double.eps)},
-  which would omit essentially constant components}
 }
 \details{
   \code{sd()} will compute the standard deviations of the columns, 
@@ -85,21 +70,13 @@
   is returned, with ownership of this vector determined by 
   \code{proc.dest}.
   
-  \code{var()} is a shallow wrapper for \code{cov()} in the case of 
-  a distributed matrix.
-  
   \code{cov()} forms the variance-covariance matrix. Only 
   \code{method="pearson"} is implemented at this time.
   
-  \code{scale()} centers and/or scales the columns of a distributed
-  matrix.
+  \code{var()} is a shallow wrapper for \code{cov()} in the case of 
+  a distributed matrix.
   
-  \code{prcomp()} performs the principal components analysis on 
-  the data matrix by taking the SVD. Sometimes core R and 
-  pbdDMAT will disagree slightly in what the rotated variables are
-  because of how the SVD is caluclated. See the details section of 
-  \code{La.svd()} under \code{\link{LinAlg}} for details.
-  more details.
+  \code{cov2cor()} scales a covariance matrix into a correlation matrix.
 }
 \value{
   Returns a distributed matrix.
@@ -119,15 +96,12 @@
 library(pbdDMAT, quiet = TRUE)
 init.grid()
 
-# don't do this in production code
-x <- matrix(1:9, 3)
-x <- as.ddmatrix(x)
+x <- ddmatrix("rnorm", nrow=3, ncol=3)
 
-y <- head(x[, -1], 2)
-print(y)
+cv <- cov(x)
+print(cv)
 
 finalize()
 }
 }
 \keyword{Methods}
-\keyword{Extraction}

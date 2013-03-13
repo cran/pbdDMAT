@@ -1,69 +1,209 @@
 # -------------------
+# MPI-like BLACS reductions
+# -------------------
+
+
+# Higher level reduction interface
+dmat.blacsreduction <- function(x, SCOPE, op, ICTXT, proc.dest=-1)
+{
+  if (!is.character(SCOPE)){
+    if (SCOPE==1)
+      SCOPE <- 'Row'
+    else if (SCOPE==2)
+      SCOPE <- 'Col'
+    else 
+      comm.stop("ERROR : invalid argument 'scope'")
+  }
+  else if (SCOPE != 'Row' && SCOPE != 'Col')
+    comm.stop("ERROR : invalid argument 'scope'")
+  
+  if (is.matrix(x)){
+    m <- dim(x)[1L]
+    n <- dim(x)[2L]
+  }
+  else if (is.vector(x)){
+    m <- length(x)[1L]
+    n <- 1L
+  }
+  else 
+    comm.stop("ERROR : object 'x' must be of class matrix or vector.")
+  
+  if (length(proc.dest==1)){
+    if (proc.dest==-1){
+      rdest <- cdest <- -1
+    } else {
+      proc.dest <- base.pcoord(ICTXT=ICTXT, PNUM=proc.dest)
+      rdest <- proc.dest[[1L]]
+      cdest <- proc.dest[[2L]]
+    }
+  }
+  else {
+    rdest <- proc.dest[1L]
+    cdest <- proc.dest[2L]
+  }
+  
+  if (op == 'sum'){
+    if (is.integer(x))
+      out <- base.igsum2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+    else
+      out <- base.dgsum2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+  }
+  else if (op == 'max'){
+    if (is.integer(x))
+      out <- base.igamx2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+    else
+      out <- base.dgamx2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+  }
+  else if (op == 'min'){
+    out <- base.dgamn2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+  }
+  else 
+    comm.stop("ERROR : invalid argument 'op'")
+  
+  return( out )
+}
+
+
+
+dmat.allcolreduce <- function(x, op='sum', ICTXT=.ICTXT)
+{
+  dmat.blacsreduction(x=x, SCOPE='Col', op=op, ICTXT=ICTXT, proc.dest=-1)
+}
+
+allcolreduce <- dmat.allcolreduce
+
+
+dmat.allrowreduce <- function(x, op='sum', ICTXT=.ICTXT)
+{
+  dmat.blacsreduction(x=x, SCOPE='Row', op=op, ICTXT=ICTXT, proc.dest=-1)
+}
+
+allrowreduce <- dmat.allrowreduce
+
+
+dmat.colreduce <- function(x, op='sum', proc.dest=0, ICTXT=.ICTXT)
+{
+  dmat.blacsreduction(x=x, SCOPE='Col', op=op, ICTXT=ICTXT, proc.dest=proc.dest)
+}
+
+colreduce <- dmat.colreduce
+
+
+dmat.rowreduce <- function(x, op='sum', proc.dest=0, ICTXT=.ICTXT)
+{
+  dmat.blacsreduction(x=x, SCOPE='Row', op=op, ICTXT=ICTXT, proc.dest=proc.dest)
+}
+
+rowreduce <- dmat.rowreduce
+
+
+
+dmat.rcsum <- function(x, na.rm=FALSE, SCOPE, MEAN=FALSE)
+{
+  if (SCOPE == 'Row'){
+    if (MEAN)
+      Data <- rowSums(x@Data / as.double(x@dim[2L]), na.rm=na.rm)
+    else
+      Data <- rowSums(x@Data, na.rm=na.rm)
+    
+    dim(Data) <- c(base::length(Data), 1L)
+    
+    if (x@dim[2L]==1)
+      return( Data )
+    else
+      n <- nrow(Data)
+  }
+  else {
+    if (MEAN)
+      Data <- colSums(x@Data / as.double(x@dim[1L]), na.rm=na.rm)
+    else
+      Data <- colSums(x@Data, na.rm=na.rm)
+    
+    dim(Data) <- c(1L, base::length(Data))
+    
+    if (x@dim[1L]==1)
+      return( Data )
+    else
+      n <- ncol(Data)
+  }
+  
+  
+  nprows <- base.blacs(ICTXT=x@ICTXT)$NPROW
+  
+  if (!is.double(Data))
+    storage.mode(Data) <- "double"
+  
+  
+  out <- dmat.blacsreduction(x=Data, SCOPE=SCOPE, op='sum', ICTXT=x@ICTXT, proc.dest=-1)
+  
+#  out <- .Call("R_dgsum2d1", as.integer(x@ICTXT), as.character(SCOPE), as.integer(1L),
+#                as.integer(n), Data, as.integer(1), as.integer(-1), as.integer(-1), 
+#                PACKAGE="pbdBASE")
+  
+  return( out )
+}
+
+# -------------------
 # Reductions
 # -------------------
 
 # rowSums
 setMethod("rowSums", signature(x="ddmatrix"), 
   function(x, na.rm=FALSE){
-    z <- new("ddmatrix", dim=c(x@dim[1], 1), ldim=c(x@bldim[1],1), bldim=x@bldim) 
-    z@Data <- matrix(base.blacs.sum('Row', x@Data, x@dim, na.rm=na.rm))
-    return( as.vector(base.as.matrix(z)) )
+    Data <- dmat.rcsum(x, na.rm=na.rm, SCOPE='Row', MEAN=FALSE)
+#    dim(Data) <- c(base::length(Data), 1L)
+    
+    z <- new("ddmatrix", Data=Data, dim=c(x@dim[1L], 1L), ldim=c(length(x@Data), 1L), bldim=x@bldim) 
+    
+    return( z )
   }
 )
 
 # colSums
 setMethod("colSums", signature(x="ddmatrix"), 
   function(x, na.rm=FALSE){
-    ldim <- base.numroc(x@dim, x@bldim)
-    z <- new("ddmatrix", dim=c(1, x@dim[2]), ldim=ldim, bldim=x@bldim) 
-    z@Data <- matrix(base.blacs.sum('Column', x@Data, x@dim, na.rm=na.rm), nrow=1)
-    return( as.vector(base.as.matrix(z)) )
+    Data <- dmat.rcsum(x, na.rm=na.rm, SCOPE='Col', MEAN=FALSE)
+    
+    z <- new("ddmatrix", Data=Data, dim=c(1L, x@dim[2L]), ldim=c(1L,length(x@Data)), bldim=x@bldim) 
+    
+    return( z )
   }
 )
 
 # rowMeans
 setMethod("rowMeans", signature(x="ddmatrix"), 
   function(x, na.rm=FALSE){
-    z <- new("ddmatrix", dim=c(x@dim[1], 1), ldim=c(x@bldim[1],1), bldim=x@bldim) 
-    z@Data <- matrix(base.blacs.sum('Row', x@Data, x@dim, na.rm=na.rm, means=TRUE, num=x@dim[2]))
-    return(as.vector(base.as.matrix(z)))
+    Data <- dmat.rcsum(x, na.rm=na.rm, SCOPE='Row', MEAN=TRUE)
+#    dim(Data) <- c(base::length(Data), 1L)
+    
+    z <- new("ddmatrix", Data=Data, dim=c(x@dim[1L], 1L), ldim=c(length(x@Data), 1L), bldim=x@bldim) 
+    
+    return( z )
   }
 )
 
 # colMeans
 setMethod("colMeans", signature(x="ddmatrix"), 
   function(x, na.rm=FALSE){
-    z <- new("ddmatrix", dim=c(1, x@dim[2]), ldim=c(1,x@dim[2]), bldim=x@bldim) 
-    z@Data <- matrix(base.blacs.sum('Column', x@Data, x@dim, na.rm=na.rm, means=TRUE, num=x@dim[1]), nrow=1)
-    return(as.vector(base.as.matrix(z)))
+    Data <- dmat.rcsum(x, na.rm=na.rm, SCOPE='Col', MEAN=TRUE)
+    
+    z <- new("ddmatrix", Data=Data, dim=c(1, x@dim[2]), ldim=c(1,length(x@Data)), bldim=x@bldim) 
+    
+    return( z )
   }
 )
+
+
 
 # diag
 setMethod("diag", signature(x="ddmatrix"),
   function(x)
   {
-    blacs_ <- base.blacs(x@CTXT)
-    myP <- c(blacs_$MYROW, blacs_$MYCOL)
-    PROCS <- c(blacs_$NPROW, blacs_$NPCOL)
-    RSRC <- CSRC <- 0 # processes with first row/col of global A
-    ISRCPROC <- 0
+    descx <- base.descinit(dim=x@dim, bldim=x@bldim, ldim=x@ldim, ICTXT=x@ICTXT)
     
-    dim <- x@dim
-    ldim <- x@ldim
-    bldim <- x@bldim
+    ret <- base.ddiagtk(x=x@Data, descx=descx)
     
-    out <- .Call("diag_grab", 
-           x@Data,
-           dim=as.integer(dim),
-           bldim=as.integer(bldim),
-           gP=as.integer(PROCS),
-           myP=as.integer(myP),
-           SRC=as.integer(c(RSRC, CSRC)),
-           PACKAGE="pbdDMAT"
-         )
-    
-    pbdMPI::allreduce(out, op='sum')
+    return( ret )
   }
 )
 
@@ -101,20 +241,16 @@ setMethod("mean", signature(x="ddmatrix"),
   {
     if (na.rm) 
         x@Data <- matrix(x@Data[!is.na(x@Data)])
-#    if (!is.numeric(trim) || length(trim) != 1L) {
-#      comm.print("'trim' must be numeric of length one")
-#      stop("")
-#    }
-    if (!base.ownany(x@dim, x@bldim, x@CTXT))
+#    if (!is.numeric(trim) || length(trim) != 1L) 
+#      comm.stop("'trim' must be numeric of length one")
+    if (!base.ownany(x@dim, x@bldim, x@ICTXT))
       n <- 0
     else
     n <- length(x@Data)
     n <- pbdMPI::allreduce(n, op='sum')
 #    if (trim > 0 && n) {
-#        if (is.complex(x)) {
-#            comm.print("trimmed means are not defined for complex data")
-#            stop("")
-#          }
+#        if (is.complex(x)) 
+#            comm.stop("trimmed means are not defined for complex data")
 #        if (any(is.na(x))) 
 #            return(NA_real_)
 #        if (trim >= 0.5) 
@@ -132,7 +268,7 @@ setMethod("mean", signature(x="ddmatrix"),
 setMethod("prod", signature(x="ddmatrix"),
   function(x, na.rm=FALSE)
   {
-    if (base.ownany(dim=x@dim, bldim=x@bldim, CTXT=x@CTXT))
+    if (base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT))
       prod <- prod(x@Data, na.rm=na.rm)
     else
       prod <- 1
@@ -144,7 +280,7 @@ setMethod("prod", signature(x="ddmatrix"),
 setMethod("min", signature(x="ddmatrix"),
   function(x, na.rm=FALSE)
   {
-    if (base.ownany(dim=x@dim, bldim=x@bldim, CTXT=x@CTXT))
+    if (base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT))
       min <- min(x@Data, na.rm=na.rm)
     else
       min <- Inf
@@ -155,7 +291,7 @@ setMethod("min", signature(x="ddmatrix"),
 setMethod("max", signature(x="ddmatrix"),
   function(x, na.rm=FALSE)
   {
-    if (base.ownany(dim=x@dim, bldim=x@bldim, CTXT=x@CTXT))
+    if (base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT))
       max <- max(x@Data, na.rm=na.rm)
     else
       max <- -Inf
@@ -174,7 +310,7 @@ setMethod("median", signature(x="ddmatrix"),
     } else
       x@Data <- matrix(x@Data[!is.na(x@Data)])
     lenloc <- length(x@Data)
-    if (!base.ownany(x@dim, x@bldim, x@CTXT))
+    if (!base.ownany(x@dim, x@bldim, x@ICTXT))
       lenloc <- 0
     n <- pbdMPI::allreduce(lenloc, op='sum')
     if (n%%2==1)

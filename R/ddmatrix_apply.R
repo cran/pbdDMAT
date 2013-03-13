@@ -9,27 +9,25 @@ setMethod("apply", signature(X="ddmatrix"),
   {
     # idiot proofing
     if (missing(MARGIN))
-      stop('argument "MARGIN" is missing, with no default')
+      comm.stop('argument "MARGIN" is missing, with no default')
     else if (MARGIN != 1 && MARGIN != 2)
-      stop('argument "MARGIN" must be 1 or 2 for a distributed matrix')
+      comm.stop('argument "MARGIN" must be 1 or 2 for a distributed matrix')
     
-    oldCTXT <- X@CTXT
+    oldCTXT <- X@ICTXT
     oldbldim <- X@bldim
     
     # comparing MARGIN/context, reblocking as needed
-      # agreement occurs for CTXT=1/MARGIN=2, and vice versa,
+      # agreement occurs for ICTXT=1/MARGIN=2, and vice versa,
     # Row margin
     if (MARGIN==1){
-      if (X@CTXT!=2)
-        X <- base.reblock(dx=X, bldim=X@bldim/2, ICTXT=2)
-
+      if (X@ICTXT!=2)
+        X <- dmat.reblock(dx=X, bldim=X@bldim/2, ICTXT=2)
+      
       tmp <- apply(X@Data, MARGIN=1, FUN=FUN)
       
       if (is.list(tmp)){
-        if (!all(sapply(tmp, is.numeric))){
-          comm.print("Error : list object contains non-numeric data")
-          stop("")
-        }
+        if (!all(sapply(tmp, is.numeric)))
+          comm.stop("Error : list object contains non-numeric data")
         if (proc.dest=='all')
           return( allgather(tmp) )
         else
@@ -37,39 +35,37 @@ setMethod("apply", signature(X="ddmatrix"),
       }
       
       else if (!is.matrix(tmp))
-        tmp <- matrix(tmp, ncol=1)
+        dim(tmp) <- c(base::length(tmp), 1L)
         
       X@Data <- tmp
-
+      
       X@ldim <- dim(X@Data)
-      X@dim[2] <- X@ldim[2]
+      X@dim[2L] <- X@ldim[2L]
     }
     # Column margin
     else if (MARGIN==2){
-      if (X@CTXT!=1)
-        X <- base.reblock(dx=X, bldim=X@bldim/2, ICTXT=1)
-
+      if (X@ICTXT!=1)
+        X <- dmat.reblock(dx=X, bldim=X@bldim/2, ICTXT=1)
+      
       tmp <- apply(X@Data, MARGIN=2, FUN=FUN)
       
       if (is.list(tmp)){
-        if (!all(sapply(tmp, is.numeric))){
-          comm.print("Error : list object contains non-numeric data")
-          stop("")
-        }
+        if (!all(sapply(tmp, is.numeric)))
+          comm.stop("Error : list object contains non-numeric data")
         if (proc.dest=='all')
           return( allgather(tmp) )
         else
           return( gather(tmp, proc.dest=proc.dest) )
       }      
       else if (!is.matrix(tmp))
-        tmp <- matrix(tmp, nrow=1)
+        dim(tmp) <- c(1L, base::length(tmp))
         
       X@Data <- tmp
-
+      
       X@ldim <- dim(X@Data)
-      X@dim[1] <- X@ldim[1]
+      X@dim[1L] <- X@ldim[1L]
     }
-
+  
   if (reduce==TRUE){
     if (MARGIN==1)
       if (X@dim[2]==1)
@@ -87,10 +83,10 @@ setMethod("apply", signature(X="ddmatrix"),
     X <- as.matrix(X, proc.dest=proc.dest)
   else if (reduce=="vector")
     X <- as.vector(X, proc.dest=proc.dest)
-
+    
     if (is.ddmatrix(X))
-      if (X@CTXT != oldCTXT)
-        X <- base.reblock(dx=X, bldim=oldbldim, ICTXT=oldCTXT)
+      if (X@ICTXT != oldCTXT)
+        X <- dmat.reblock(dx=X, bldim=oldbldim, ICTXT=oldCTXT)
       
     return(X)
   }
