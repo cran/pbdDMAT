@@ -19,6 +19,6 @@ setClass(
                          dim=c(1L, 1L),
                          ldim=c(1L, 1L),
                          bldim=c(1L, 1L),
-                         ICTXT=0
+                         ICTXT=0L
           )
 )

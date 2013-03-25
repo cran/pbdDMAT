@@ -1,15 +1,18 @@
 ### SHELL> mpiexec -np 2 Rscript --vanilla [...].r
 
 # Initialize process grid
-suppressPackageStartupMessages(library(pbdDMAT))
-invisible(capture.output(library(pbdDMAT)))
-init.grid(1, 2)
+library(pbdDMAT, quiet=T)
+
+if(comm.size() != 2)
+  comm.stop("Exactly 2 processors are required for this demo.")
+
+init.grid()
 
 # Generate a random matrix common to all processes and distribute it.
 # This approach should only be used while learning the pbdDMAT package.
-set.seed(25)
-x <- matrix(rnorm(100), nrow = 25, ncol = 4)
-dx <- as.ddmatrix(x, bldim = 16)
+comm.set.seed(diff=TRUE)
+dx <- ddmatrix("rnorm", nrow = 25, ncol = 4)
+x <- as.matrix(dx)
 
 # Matrix operations
 myprod <- t(dx) %*% dx
