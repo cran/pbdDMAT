@@ -151,6 +151,7 @@ setMethod("[", signature(x="ddmatrix"),
 )
 
 
+# `[`
 setReplaceMethod("[", signature(x ="ddmatrix", value="ANY"),
   function(x, i, j, ..., value) 
   {
@@ -171,12 +172,13 @@ setReplaceMethod("[", signature(x ="ddmatrix", value="ANY"),
   }
 )
 
-#
+
+# `[<-`
 setReplaceMethod("[", signature(x ="ddmatrix", value="ddmatrix"),
   function(x, i, j, ..., value) 
   {
-#    if (missing(i) && missing(j))
-#      comm.stop("incorrect number of subscripts")
+    if (missing(i) && missing(j))
+      return(x)
     if (missing(i)){
       lv <- as.integer(value@dim[2L])
       if (length(j) %% lv != 0)
@@ -207,8 +209,6 @@ setReplaceMethod("[", signature(x ="ddmatrix", value="ddmatrix"),
         ret@Data <- out
       }
     }
-    else
-      comm.stop("can't do this yet")
     
     return( ret )
   }
@@ -279,13 +279,28 @@ setMethod("print", signature(x="ddmatrix"),
     } else {
       ff <- paste(paste(format(base.firstfew(x, atmost=4), scientific=TRUE, digits=3), collapse=", "), ", ...", sep="")
       if (comm.rank()==0){
-        blacs_ <- base.blacs(x@ICTXT)
+        grid <- base.blacs(x@ICTXT)
         cat(sprintf("\nDENSE DISTRIBUTED MATRIX\n---------------------------\n@Data:\t\t\t%s\nProcess grid:\t\t%dx%d\nGlobal dimension:\t%dx%d\n(max) Local dimension:\t%dx%d\nBlocking:\t\t%dx%d\nBLACS ICTXT:\t\t%d\n\n",
-          ff, blacs_$NPROW, blacs_$NPCOL, x@dim[1], x@dim[2], x@ldim[1], x@ldim[2], x@bldim[1], x@bldim[2], x@ICTXT))
+          ff, grid$NPROW, grid$NPCOL, x@dim[1], x@dim[2], x@ldim[1], x@ldim[2], x@bldim[1], x@bldim[2], x@ICTXT))
       }
     }
     
     pbdMPI::barrier()
+    
+    return( invisible(0) )
+  }
+)
+
+setMethod("show", signature(object="ddmatrix"),
+  function(object)
+  {
+    if (comm.rank()==0){
+      grid <- base.blacs(object@ICTXT)
+      cat(sprintf("\nDENSE DISTRIBUTED MATRIX\n---------------------------\nProcess grid:\t\t%dx%d\nGlobal dimension:\t%dx%d\n(max) Local dimension:\t%dx%d\nBlocking:\t\t%dx%d\nBLACS ICTXT:\t\t%d\n\n",
+        grid$NPROW, grid$NPCOL, object@dim[1], object@dim[2], object@ldim[1], object@ldim[2], object@bldim[1], object@bldim[2], object@ICTXT))
+    }
+    
+#    pbdMPI::barrier()
     
     return( invisible(0) )
   }
@@ -339,8 +354,8 @@ setMethod("ldim", signature(x="ddmatrix"),
 
 dmat.bldim <- function(x)
 {
-  if (!is.ddmatrix(x))
-    comm.stop("Not a distributed matrix")
+  if (!is.ddmatrix(x))# && !is.ddvector(x))
+    comm.stop("'bldim' only applies objects of class 'ddmatrix' and 'ddvector'")
   else
     return(x@bldim)
 }
@@ -363,8 +378,8 @@ setMethod("submatrix", signature(x="ddmatrix"),
 
 dmat.ictxt <- function(x)
 {
-  if (!is.ddmatrix(x))
-    comm.stop("Not a distributed matrix")
+  if (!is.ddmatrix(x))# && !is.ddvector(x))
+    comm.stop("'ICTXT' only applies objects of class 'ddmatrix' and 'ddvector'")
   else
     return(x@ICTXT)
 }

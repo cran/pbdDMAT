@@ -29,11 +29,13 @@ setMethod("+", signature(e1="ddmatrix", e2="numeric"),
 )
 
 
+
 # Vector + ddmatrix
 setMethod("+", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2)
     e2+e1
 )
+
 
 
 # ddmatrix + ddmatrix
@@ -46,6 +48,7 @@ setMethod("+", signature(e1="ddmatrix", e2="ddmatrix"),
     return(e1)
   }
 )
+
 
 
 # ----------------
@@ -71,6 +74,8 @@ setMethod("-", signature(e1="ddmatrix", e2="numeric"),
   }
 )
 
+
+
 # Vector - ddmatrix
 setMethod("-", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2){
@@ -79,6 +84,8 @@ setMethod("-", signature(e1="numeric", e2="ddmatrix"),
     return(e2+e1)
   }
 )
+
+
 
 # ddmatrix - ddmatrix
 setMethod("-", signature(e1="ddmatrix", e2="ddmatrix"), 
@@ -91,6 +98,8 @@ setMethod("-", signature(e1="ddmatrix", e2="ddmatrix"),
   }
 )
 
+
+
 # missing - ddmatrix
 setMethod("-", signature(e1="ddmatrix", e2="missing"), 
   function(e1){
@@ -99,6 +108,8 @@ setMethod("-", signature(e1="ddmatrix", e2="missing"),
     return(e1)
   }
 )
+
+
 
 # ----------------
 # *
@@ -123,11 +134,15 @@ setMethod("*", signature(e1="ddmatrix", e2="numeric"),
   }
 )
 
+
+
 # Vector * Dmat
 setMethod("*", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2)
     return(e2*e1)
 )
+
+
 
 # ddmatrix * ddmatrix
 setMethod("*", signature(e1="ddmatrix", e2="ddmatrix"), 
@@ -139,6 +154,8 @@ setMethod("*", signature(e1="ddmatrix", e2="ddmatrix"),
     return(e1)
   }
 )
+
+
 
 # ----------------
 # /
@@ -162,6 +179,8 @@ setMethod("/", signature(e1="ddmatrix", e2="numeric"),
   }
 )
 
+
+
 setMethod("/", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2){
     if (base.ownany(dim=e2@dim, bldim=e2@bldim, ICTXT=e2@ICTXT))
@@ -170,6 +189,8 @@ setMethod("/", signature(e1="numeric", e2="ddmatrix"),
     return(e2*e1)
   }
 )
+
+
 
 # ddmatrix / ddmatrix
 setMethod("/", signature(e1="ddmatrix", e2="ddmatrix"), 
@@ -182,10 +203,13 @@ setMethod("/", signature(e1="ddmatrix", e2="ddmatrix"),
   }
 )
 
+
+
 # ----------------
 # ^
 # ----------------
 
+# ddmatrix ^ numeric
 setMethod("^", signature(e1="ddmatrix", e2="numeric"), 
   function(e1, e2){
     dim <- e1@dim
@@ -204,12 +228,16 @@ setMethod("^", signature(e1="ddmatrix", e2="numeric"),
   }
 )
 
-# this is actually a really stupid thing to want
+
+
+## numeric ^ ddmatrix
 #setMethod("^", signature(e1="numeric", e2="ddmatrix"), 
 #  function(e1, e2){
 #    
 #  }
 #)
+
+
 
 # ddmatrix ^ ddmatrix
 setMethod("^", signature(e1="ddmatrix", e2="ddmatrix"), 
@@ -221,6 +249,8 @@ setMethod("^", signature(e1="ddmatrix", e2="ddmatrix"),
     return(e1)
   }
 )
+
+
 
 # ----------------
 # Modulo stuff --- pretty useless, really
@@ -235,6 +265,8 @@ setMethod("%%", signature(e1="ddmatrix", e2="ddmatrix"),
     return(e1)
   }
 )
+
+
 
 setMethod("%%", signature(e1="ddmatrix", e2="numeric"), 
   function(e1, e2){
@@ -254,6 +286,8 @@ setMethod("%%", signature(e1="ddmatrix", e2="numeric"),
   }
 )
 
+
+
 setMethod("%%", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2){
     dim <- e2@dim
@@ -272,6 +306,8 @@ setMethod("%%", signature(e1="numeric", e2="ddmatrix"),
   }
 )
 
+
+
 setMethod("%/%", signature(e1="ddmatrix", e2="ddmatrix"), 
   function(e1, e2){
     base.checkem(x=e1, y=e2, checks=1:3)
@@ -281,16 +317,18 @@ setMethod("%/%", signature(e1="ddmatrix", e2="ddmatrix"),
   }
 )
 
+
+
 setMethod("%/%", signature(e1="numeric", e2="ddmatrix"), 
   function(e1, e2){
     return(floor(e1 / e2))
   }
 )
 
+
+
 setMethod("%/%", signature(e1="ddmatrix", e2="numeric"), 
   function(e1, e2){
     return(floor(e1 / e2))
   }
 )
-
-

@@ -1,3 +1,16 @@
+2013-7-2:
+  * Several qr()/qr.Q() bugs fixed.
+
+2013-5-30:
+  * Added rowMin(), colMin(), rowMax(), and colMax() methods.
+  * Added as.block(), as.rowblock(), as.colblock(), as.rowcyclic(), 
+    as.colcyclic(), and as.blockcyclic() redistribution methods.
+
+2013-5-24:
+  * Added experimental ddvector class.
+
+pbdDMAT 0.2-0 (2013-3-25) --------------------------------------------------
+
 2013-3-20:
   * Added eigen() method.
   * Attributes bugfix when subsetting.

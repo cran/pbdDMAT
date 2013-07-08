@@ -42,24 +42,26 @@ dmat.blacsreduction <- function(x, SCOPE, op, ICTXT, proc.dest=-1, check=TRUE)
     cdest <- proc.dest[2L]
   }
   
+  
   # checking that all m and n agree
   if (check){
     if (SCOPE=='All')
       mx <- allreduce(c(m,n), op='max')
     else
-      mx <- base.igamx2d(ICTXT=ICTXT, SCOPE=SCOPE, m=2, n=1, x=c(m,n), lda=2, RDEST=-1, CDEST=-1)
+      mx <- base.igamx2d(ICTXT=ICTXT, SCOPE=SCOPE, m=2L, n=1L, x=c(m,n), lda=2, RDEST=-1, CDEST=-1)
     
     dm <- mx[1L] - m
     dn <- mx[2L] - n
     
     if (dm > 0 || dn > 0){
       dim(x) <- NULL
-    
-    if (is.integer(x))
-      nd <- 0L
-    else
-      nd <- 0.0
-    
+      
+      if (is.integer(x))
+        nd <- 0L
+      else
+        nd <- 0.0
+      
+      
       x <- c(x, rep(nd, prod(mx)-(m*n)))
       m <- mx[1L]
       n <- mx[2L]
@@ -80,7 +82,10 @@ dmat.blacsreduction <- function(x, SCOPE, op, ICTXT, proc.dest=-1, check=TRUE)
       out <- base.dgamx2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
   }
   else if (op == 'min'){
-    out <- base.dgamn2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+    if (is.integer(x))
+      out <- base.igamn2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
+    else
+      out <- base.dgamn2d(ICTXT=ICTXT, SCOPE=SCOPE, m=m, n=n, x=x, lda=m, RDEST=rdest, CDEST=cdest)
   }
   else 
     comm.stop("ERROR : invalid argument 'op'")
@@ -153,13 +158,77 @@ dmat.rcsum <- function(x, na.rm=FALSE, SCOPE, MEAN=FALSE)
   }
   
   
-  nprows <- base.blacs(ICTXT=x@ICTXT)$NPROW
+  out <- dmat.blacsreduction(x=Data, SCOPE=SCOPE, op='sum', ICTXT=x@ICTXT, proc.dest=-1, check=TRUE)
+  
+  return( out )
+}
+
+
+dmat.rcminmax <- function(x, na.rm=FALSE, SCOPE, op)
+{
+  op <- match.arg(op, c("min", "max"))
+  Rop <- eval(parse(text=op))
+  
+  if (SCOPE == 'Row'){
+    Data <- apply(x@Data, 1L, Rop, na.rm=na.rm)
+    
+    dim(Data) <- c(base::length(Data), 1L)
+    
+    if (x@dim[2L]==1)
+      return( Data )
+    else
+      n <- nrow(Data)
+  }
+  else {
+    Data <- apply(x@Data, 2L, Rop, na.rm=na.rm)
+    
+    dim(Data) <- c(1L, base::length(Data))
+    
+    if (x@dim[1L]==1)
+      return( Data )
+    else
+      n <- ncol(Data)
+  }
+  
+  # have to account for possible lack of ownership
+  if (SCOPE=='All')
+    mx <- allreduce(dim(Data), op='max')
+  else
+    mx <- base.igamx2d(ICTXT=x@ICTXT, SCOPE=SCOPE, m=2L, n=1L, x=dim(Data), lda=2, RDEST=-1, CDEST=-1)
+  
+  m <- dim(x@Data)[1L]
+  n <- dim(x@Data)[2L]
+  
+  dm <- mx[1L] - m
+  dn <- mx[2L] - n
   
   if (!is.double(Data))
     storage.mode(Data) <- "double"
   
+  iown <- base.ownany(dim=x@dim, bldim=x@bldim, ICTXT=x@ICTXT)
   
-  out <- dmat.blacsreduction(x=Data, SCOPE=SCOPE, op='sum', ICTXT=x@ICTXT, proc.dest=-1)
+  if (op=='min')
+    nd <- allreduce(max(Data), op='max')
+  else if (op=='max')
+    nd <- allreduce(min(Data), op='min')
+  
+  if (dm > 0 || dn > 0 || !iown){
+    dim(Data) <- NULL
+    
+#    if (op=='min')
+#      nd <- Inf
+#    else if (op=='max')
+#      nd <- -Inf
+    
+    if(!iown)
+      Data <- rep(nd, prod(mx))
+    else
+      Data <- c(Data, rep(nd, prod(mx)-(m*n)))
+    
+    dim(Data) <- mx
+  }
+  
+  out <- dmat.blacsreduction(x=Data, SCOPE=SCOPE, op=op, ICTXT=x@ICTXT, proc.dest=-1)
   
   return( out )
 }
@@ -167,6 +236,8 @@ dmat.rcsum <- function(x, na.rm=FALSE, SCOPE, MEAN=FALSE)
 # -------------------
 # Reductions
 # -------------------
+
+### Row/column reductions
 
 # rowSums
 setMethod("rowSums", signature(x="ddmatrix"), 
@@ -215,6 +286,78 @@ setMethod("colMeans", signature(x="ddmatrix"),
 )
 
 
+# rowMin
+setMethod("rowMin", signature(x="ddmatrix"), 
+  function(x, na.rm=FALSE){
+    Data <- dmat.rcminmax(x=x, na.rm=na.rm, SCOPE='Row', op='min')
+    
+    z <- new("ddmatrix", Data=Data, dim=c(x@dim[1L], 1L), ldim=c(length(x@Data), 1L), bldim=x@bldim) 
+    
+    return( z )
+  }
+)
+
+setMethod("rowMin", signature(x="matrix"), 
+  function(x, na.rm=FALSE)
+    apply(X=x, MARGIN=1L, FUN=min, na.rm=na.rm)
+)
+
+
+# colMin
+setMethod("colMin", signature(x="ddmatrix"), 
+  function(x, na.rm=FALSE){
+    Data <- dmat.rcminmax(x=x, na.rm=na.rm, SCOPE='Col', op='min')
+    
+    z <- new("ddmatrix", Data=Data, dim=c(1L, x@dim[2L]), ldim=c(1L,length(x@Data)), bldim=x@bldim) 
+    
+    return( z )
+  }
+)
+
+
+setMethod("colMin", signature(x="matrix"), 
+  function(x, na.rm=FALSE)
+    apply(X=x, MARGIN=2L, FUN=min, na.rm=na.rm)
+)
+
+
+# rowMax
+setMethod("rowMax", signature(x="ddmatrix"), 
+  function(x, na.rm=FALSE){
+    Data <- dmat.rcminmax(x=x, na.rm=na.rm, SCOPE='Row', op='max')
+    
+    z <- new("ddmatrix", Data=Data, dim=c(x@dim[1L], 1L), ldim=c(length(x@Data), 1L), bldim=x@bldim) 
+    
+    return( z )
+  }
+)
+
+
+setMethod("rowMax", signature(x="matrix"), 
+  function(x, na.rm=FALSE)
+    apply(X=x, MARGIN=1L, FUN=max, na.rm=na.rm)
+)
+
+
+# colMin
+setMethod("colMax", signature(x="ddmatrix"), 
+  function(x, na.rm=FALSE){
+    Data <- dmat.rcminmax(x=x, na.rm=na.rm, SCOPE='Col', op='max')
+    
+    z <- new("ddmatrix", Data=Data, dim=c(1L, x@dim[2L]), ldim=c(1L,length(x@Data)), bldim=x@bldim) 
+    
+    return( z )
+  }
+)
+
+
+setMethod("colMin", signature(x="matrix"), 
+  function(x, na.rm=FALSE)
+    apply(X=x, MARGIN=2L, FUN=max, na.rm=na.rm)
+)
+
+
+### Other
 
 # diag
 setMethod("diag", signature(x="ddmatrix"),
@@ -251,6 +394,7 @@ setMethod("sum", signature(x="ddmatrix"),
       na.rm=na.rm)
     else
       other <- 0
+    
     local <- sum(x@Data, na.rm=na.rm) + other
     pbdMPI::allreduce(local, op="sum")
   }
