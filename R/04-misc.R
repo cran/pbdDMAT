@@ -148,7 +148,7 @@ dmat.rank_k <- function(vec, k, shouldsort=FALSE)
     if (vec==0)
       vec <- NA
   
-    mdmd <- median(unlist(pbdMPI::allgather(median(vec, na.rm=T))), na.rm=T)
+    mdmd <- median(unlist(pbdMPI::allgather(median(vec, na.rm=TRUE))), na.rm=TRUE)
 
     below <- vec[which(vec <= mdmd)]
     lbelow <- length(below)
@@ -255,5 +255,22 @@ base.firstfew <- function(dx, atmost=5)
   barrier()
   out <- pbdMPI::allreduce(out, op='sum')
   return(out)
+}
+
+
+
+# error checking for the lazy man
+must.be <- function(x, type)
+{
+    type <- match.arg(type, c("character", "numeric", "integer", "double", "logical", "matrix", "data.frame", "vector", "ddmatrix"))
+    
+    nm <- deparse(substitute(x))
+    
+    fun <- eval(parse(text=paste("is.", type, sep="")))
+    
+    if (!fun(x))
+        comm.stop(paste("argument '", nm, "' must be of type ", type, sep=""), call.=FALSE)
+    
+    invisible(TRUE)
 }
 

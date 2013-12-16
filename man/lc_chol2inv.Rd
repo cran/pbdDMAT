@@ -17,7 +17,7 @@
 }
 }
 \usage{
-  \S4method{chol2inv}{ddmatrix}(x, size = NCOL(x))
+\S4method{chol2inv}{ddmatrix}(x, size = NCOL(x))
 }
 \arguments{
   \item{x}{numeric distributed matrices for}
@@ -56,4 +56,4 @@ finalize()
 }
 }
 \keyword{Methods}
-\keyword{Extraction}
+\keyword{Linear Algebra}

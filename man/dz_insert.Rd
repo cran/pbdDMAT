@@ -22,8 +22,8 @@
 }
 }
 \usage{
-  x[i, j] <- value
-  submatrix(x) <- value
+x[i, j] <- value
+submatrix(x) <- value
 }
 \arguments{
   \item{x}{numeric distributed matrix.}
@@ -49,9 +49,6 @@
 }
 \value{
   Returns a distributed matrix.
-}
-\seealso{
-  \code{\link{BLACS}, \link{InitGrid}}
 }
 \examples{
 \dontrun{

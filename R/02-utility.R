@@ -48,9 +48,11 @@ dmat.gmat <- function(dx, proc.dest="all")
   if (proc.dest[1]=='all')
     rsrc <- csrc <- -1
   else {
-    dest <- base.pcoord(ICTXT=ICTXT, PNUM=proc.dest)
-    rsrc <- dest[[1]]
-    csrc <- dest[[2]]
+#    dest <- base.pcoord(ICTXT=ICTXT, PNUM=proc.dest)
+#    rsrc <- dest[[1]]
+#    csrc <- dest[[2]]
+    rsrc <- proc.dest[1]
+    csrc <- proc.dest[2]
   }
   
   out <- base.mkgblmat(dx@Data, descx=descx, rsrc=rsrc, csrc=csrc)
@@ -115,15 +117,17 @@ base.distribute <- function(x, bldim=.BLDIM, xCTXT=0, ICTXT=.ICTXT)
     dim <- c(0, 0)
   
   ldim <- dim(x)
-
+  
   if (!is.double(x))
     storage.mode(x) <- "double"
-
+  
   blacs_ <- blacs(xCTXT)
+  
   if (blacs_$NPROW > 1)
     dim[1] <- pbdMPI::allreduce(dim[1], op='sum')
   else
     dim[1] <- pbdMPI::allreduce(dim[1], op='max')
+  
   if (blacs_$NPCOL > 1)
     dim[2] <- pbdMPI::allreduce(dim[2], op='sum')
   else
