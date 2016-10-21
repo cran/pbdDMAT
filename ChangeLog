@@ -1,3 +1,16 @@
+Release 0.4-2
+  * Use S3 instead of S4 for rbind/cbind.
+  * Remove -w and fix compiler warnings.
+  * Update internal RNACI.
+  * Fix eigen() interface.
+
+Release 0.4-1
+  * Extended submatrix() method to matrices.
+  * Switched as.ddmatrix() to use new distribution method.
+  * Fixed reductions (colSums, rowMeans, etc) storage bug.
+  * Fixed ddmatrix class check from using class() to is() (thanks Sébastien).
+  * Fixed as.ddmatrix() bug when only single bldim value is supplied.
+
 Release 0.4-0
   * Ingegrate .BLDIM and .ICTXT within pbd_opt().
   * Added getLocal().

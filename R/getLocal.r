@@ -1,5 +1,7 @@
 #' getLocal
 #' 
+#' Get the value of the distributed matrix at global indices gi x gj.
+#' 
 #' @param x
 #' A distributed matrix.
 #' @param gi,gj
@@ -16,6 +18,7 @@
 #' for you.
 #' 
 #' @return 
+#' The value at global index gi x gj.
 #' 
 #' @examples
 #' \dontrun{
@@ -39,7 +42,7 @@
 #' @export
 getLocal <- function(x, gi, gj, all.rank=TRUE, gridinfo)
 {
-  if (class(x) != "ddmatrix")
+  if (!is(x, "ddmatrix"))
     comm.stop("Argument 'x' must be of type 'ddmatrix'")
   
   if (missing(gridinfo))

@@ -73,7 +73,8 @@ base.mat.to.ddmat <- function(x, bldim=.pbd_env$BLDIM, ICTXT=.pbd_env$ICTXT)
 {
   if (!is.matrix(x))
     comm.stop("input 'x' must be a matrix") 
-  else if (length(bldim) == 1) 
+  
+  if (length(bldim) == 1) 
     bldim <- rep(bldim, 2) 
   else if (diff(bldim) != 0)
     comm.warning("Most ScaLAPACK routines do not allow for non-square blocking.  This is highly non-advised.")
@@ -99,10 +100,12 @@ distribute <- function(x, bldim=.pbd_env$BLDIM, xCTXT=0, ICTXT=.pbd_env$ICTXT)
   if (length(bldim)==1)
     bldim <- rep(bldim, 2L)
   
-  if (!is.matrix(x) && is.null(x)){
+  if (!is.matrix(x) && is.null(x))
+  {
     x <- matrix(0)
     iown <- FALSE
-  } else
+  }
+  else
     iown <- TRUE
   
   if (iown)
@@ -145,8 +148,11 @@ distribute <- function(x, bldim=.pbd_env$BLDIM, xCTXT=0, ICTXT=.pbd_env$ICTXT)
 # Distribute dense, in-core matrices
 dmat.as.ddmatrix <- function(x, bldim=.pbd_env$BLDIM, ICTXT=.pbd_env$ICTXT)
 {
+  if (length(bldim)==1)
+    bldim <- rep(bldim, 2L)
+
   nprocs <- pbdMPI::comm.size()
-  owns <- pbdMPI::allreduce(is.matrix(x), op='sum')
+  owns <- pbdMPI::allreduce(as.integer(is.matrix(x)), op='sum')
   
   # owned by one process 
   if (owns==1)
@@ -157,7 +163,30 @@ dmat.as.ddmatrix <- function(x, bldim=.pbd_env$BLDIM, ICTXT=.pbd_env$ICTXT)
     else
       iown <- 0
     iown <- pbdMPI::allreduce(iown, op='max')
-    return( distribute(x=x, bldim=bldim, xCTXT=0, ICTXT=ICTXT) )
+    # return( distribute(x=x, bldim=bldim, xCTXT=0, ICTXT=ICTXT) )
+    
+    if (iown != 0)
+      comm.stop("matrix must be on rank 0")
+    
+    if (comm.rank() == 0)
+    {
+      dim <- dim(x)
+      ldim <- base.numroc(dim=dim, bldim=bldim, ICTXT=ICTXT)
+      desc <- base.descinit(dim=dim, bldim=bldim, ldim=ldim, ICTXT=ICTXT)
+    }
+    else
+    {
+      x <- matrix(0.0, 1, 1)
+      desc <- integer(9)
+    }
+    
+    desc <- allreduce(desc)
+    ## FIXME remove after pbdMPI fix
+    desc <- as.integer(desc)
+    
+    ret <- base.redist(desc, x)
+    dx <- new("ddmatrix", Data=ret, dim=desc[3:4], ldim=dim(ret), bldim=bldim, ICTXT=ICTXT)
+    return(dx)
   } 
   # global ownership is assumed --- this should only ever really happen in testing
   else if (owns==nprocs)
