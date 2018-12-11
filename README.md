@@ -1,6 +1,6 @@
 # pbdDMAT
 
-* **Version:** 0.4-2
+* **Version:** 0.5-0
 * **License:** [![License](http://img.shields.io/badge/license-GPL%20%28%3E=%202%29-orange.svg?style=flat)](http://www.gnu.org/licenses/gpl-2.0.html)
 * **Author:** See section below.
 
@@ -34,9 +34,6 @@ install.package("pbdDMAT")
 The development version is maintained on GitHub, and can easily be installed by any of the packages that offer installations from GitHub:
 
 ```r
-### Pick your preference
-devtools::install_github("RBigData/pbdDMAT")
-ghit::install_github("RBigData/pbdDMAT")
 remotes::install_github("RBigData/pbdDMAT")
 ```
 
